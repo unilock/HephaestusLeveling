@@ -1,54 +1,20 @@
 package org.embeddedt.tinkerleveling.capability;
 
-import net.minecraft.core.Direction;
-import net.minecraft.nbt.ListTag;
-import net.minecraftforge.common.capabilities.Capability;
-import net.minecraftforge.common.capabilities.CapabilityManager;
-import net.minecraftforge.common.capabilities.CapabilityToken;
-import net.minecraftforge.common.capabilities.ICapabilityProvider;
-import net.minecraftforge.common.util.INBTSerializable;
-import net.minecraftforge.common.util.LazyOptional;
+import dev.onyxstudios.cca.api.v3.component.ComponentKey;
+import dev.onyxstudios.cca.api.v3.component.ComponentRegistry;
+import dev.onyxstudios.cca.api.v3.entity.EntityComponentFactoryRegistry;
+import dev.onyxstudios.cca.api.v3.entity.EntityComponentInitializer;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.entity.LivingEntity;
+import org.embeddedt.tinkerleveling.TinkerLeveling;
+import org.jetbrains.annotations.NotNull;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+public final class CapabilityDamageXp implements EntityComponentInitializer {
 
-public final class CapabilityDamageXp implements ICapabilityProvider, INBTSerializable<ListTag> {
-
-  public static Capability<DamageXp> CAPABILITY = CapabilityManager.get(new CapabilityToken<>(){});
-
-  private DamageXp damageXp = null;
-  private final LazyOptional<DamageXp> opt = LazyOptional.of(this::createDamageXp);
-
-  @Nonnull
-  private DamageXp createDamageXp() {
-    if (damageXp == null) {
-      damageXp = new DamageXp();
-    }
-    return damageXp;
-  }
-
-  @Nonnull
-  @Override
-  public <T> LazyOptional<T> getCapability(@Nonnull Capability<T> cap) {
-    if (cap == CAPABILITY) {
-      return opt.cast();
-    }
-    return LazyOptional.empty();
-  }
-
-  @Nonnull
-  @Override
-  public <T> LazyOptional<T> getCapability(@Nonnull Capability<T> cap, @Nullable Direction side) {
-    return getCapability(cap);
-  }
+  public static final ComponentKey<IDamageXp> CAPABILITY = ComponentRegistry.getOrCreate(new ResourceLocation(TinkerLeveling.MODID, "entityxp"), IDamageXp.class);
 
   @Override
-  public ListTag serializeNBT() {
-    return createDamageXp().serializeNBT();
-  }
-
-  @Override
-  public void deserializeNBT(ListTag nbt) {
-    createDamageXp().deserializeNBT(nbt);
+  public void registerEntityComponentFactories(@NotNull EntityComponentFactoryRegistry registry) {
+    registry.registerFor(LivingEntity.class, CAPABILITY, entity -> new DamageXp());
   }
 }

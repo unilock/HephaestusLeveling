@@ -1,20 +1,16 @@
 package org.embeddedt.tinkerleveling;
 
+import io.github.fabricators_of_create.porting_lib.config.ModConfigSpec;
 import net.minecraft.world.item.Item;
-import net.minecraftforge.common.ForgeConfigSpec;
-import net.minecraftforge.fml.common.Mod;
-import slimeknights.tconstruct.common.TinkerTags;
-import slimeknights.tconstruct.tools.ToolDefinitions;
 
-@Mod.EventBusSubscriber(modid = TinkerLeveling.MODID, bus = Mod.EventBusSubscriber.Bus.MOD)
 public class TinkerConfig {
-    private static final ForgeConfigSpec.Builder SERVER_BUILDER = new ForgeConfigSpec.Builder();
-    public static ForgeConfigSpec SERVER_CONFIG;
+    private static final ModConfigSpec.Builder SERVER_BUILDER = new ModConfigSpec.Builder();
+    public static ModConfigSpec SERVER_CONFIG;
 
-    public static final ForgeConfigSpec.IntValue maximumLevels;
-    public static final ForgeConfigSpec.IntValue defaultBaseXP;
-    public static final ForgeConfigSpec.DoubleValue levelMultiplier;
-    public static final ForgeConfigSpec.BooleanValue allowArmorExploits;
+    public static final ModConfigSpec.IntValue maximumLevels;
+    public static final ModConfigSpec.IntValue defaultBaseXP;
+    public static final ModConfigSpec.DoubleValue levelMultiplier;
+    public static final ModConfigSpec.BooleanValue allowArmorExploits;
 
     static {
         maximumLevels = SERVER_BUILDER.comment("Maximum achievable levels. If set to 0 or lower there is no upper limit").defineInRange("maximumLevels", 0, 0, Integer.MAX_VALUE);

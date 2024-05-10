@@ -1,6 +1,7 @@
 package org.embeddedt.tinkerleveling;
 
 import com.mojang.datafixers.util.Pair;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.NbtUtils;
 import net.minecraft.nbt.Tag;
 import net.minecraft.resources.ResourceLocation;
@@ -16,13 +17,17 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.enchantment.Enchantment;
 import net.minecraft.world.phys.EntityHitResult;
-import net.minecraftforge.common.MinecraftForge;
 import org.embeddedt.tinkerleveling.capability.CapabilityDamageXp;
+import org.jetbrains.annotations.Nullable;
 import slimeknights.tconstruct.common.SoundUtils;
 import slimeknights.tconstruct.library.modifiers.Modifier;
 import slimeknights.tconstruct.library.modifiers.ModifierEntry;
 import slimeknights.tconstruct.library.modifiers.TinkerHooks;
-import slimeknights.tconstruct.library.modifiers.hook.*;
+import slimeknights.tconstruct.library.modifiers.hook.ConditionalStatModifierHook;
+import slimeknights.tconstruct.library.modifiers.hook.HarvestEnchantmentsModifierHook;
+import slimeknights.tconstruct.library.modifiers.hook.ProjectileHitModifierHook;
+import slimeknights.tconstruct.library.modifiers.hook.ProjectileLaunchModifierHook;
+import slimeknights.tconstruct.library.modifiers.hook.ShearsModifierHook;
 import slimeknights.tconstruct.library.modifiers.hooks.IHarvestModifier;
 import slimeknights.tconstruct.library.modifiers.hooks.IShearModifier;
 import slimeknights.tconstruct.library.modifiers.util.ModifierHookMap;
@@ -33,12 +38,16 @@ import slimeknights.tconstruct.library.tools.context.ToolHarvestContext;
 import slimeknights.tconstruct.library.tools.context.ToolRebuildContext;
 import slimeknights.tconstruct.library.tools.helper.ModifierUtil;
 import slimeknights.tconstruct.library.tools.item.ModifiableLauncherItem;
-import slimeknights.tconstruct.library.tools.nbt.*;
+import slimeknights.tconstruct.library.tools.nbt.IModDataView;
+import slimeknights.tconstruct.library.tools.nbt.IToolStackView;
+import slimeknights.tconstruct.library.tools.nbt.ModDataNBT;
+import slimeknights.tconstruct.library.tools.nbt.ModifierNBT;
+import slimeknights.tconstruct.library.tools.nbt.NamespacedNBT;
+import slimeknights.tconstruct.library.tools.nbt.ToolStack;
 import slimeknights.tconstruct.library.tools.stat.ToolStats;
 import slimeknights.tconstruct.library.utils.RestrictedCompoundTag;
 import slimeknights.tconstruct.tools.TinkerModifiers;
 
-import javax.annotation.Nullable;
 import java.util.UUID;
 import java.util.WeakHashMap;
 import java.util.function.BiConsumer;
@@ -59,7 +68,6 @@ public class ModToolLeveling extends Modifier implements HarvestEnchantmentsModi
 
     public ModToolLeveling() {
         super();
-        MinecraftForge.EVENT_BUS.register(this);
     }
 
 
@@ -119,9 +127,9 @@ public class ModToolLeveling extends Modifier implements HarvestEnchantmentsModi
         }
 
         if(leveledUp) {
-            if(!player.getLevel().isClientSide) {
-                SoundUtils.playSoundForPlayer(player, TinkerLeveling.SOUND_LEVELUP, 1f, 1f);
-                TinkerPacketHandler.sendLevelUp(levelData.getInt(LEVEL_KEY), player);
+            if(!player.level().isClientSide) {
+                SoundUtils.playSoundForPlayer(player, BuiltInRegistries.SOUND_EVENT.wrapAsHolder(TinkerLeveling.SOUND_LEVELUP), 1f, 1f);
+                ClientHelper.sendLevelUpMessage(levelData.getInt(LEVEL_KEY), player);
             }
             /* FIXME: no other way of doing this that I see */
             if(tool instanceof ToolStack) {
@@ -166,7 +174,7 @@ public class ModToolLeveling extends Modifier implements HarvestEnchantmentsModi
             isLevelableItem = false;
         if(isDirectDamage
                 && isLevelableItem
-                && !player.getLevel().isClientSide) {
+                && !player.level().isClientSide) {
             addXp(tool, 1, player);
         }
     }
@@ -176,13 +184,13 @@ public class ModToolLeveling extends Modifier implements HarvestEnchantmentsModi
         LivingEntity target = context.getLivingTarget();
         if(target == null)
             return 0;
-        if(!context.getTarget().getLevel().isClientSide && context.getPlayerAttacker() != null) {
+        if(!context.getTarget().level().isClientSide && context.getPlayerAttacker() != null) {
             // if we killed it the event for distributing xp was already fired and we just do it manually here
             if(!context.getTarget().isAlive()) {
                 addXp(tool, Math.round(damageDealt), context.getPlayerAttacker());
             }
             else {
-                target.getCapability(CapabilityDamageXp.CAPABILITY, null).ifPresent(cap -> {
+                CapabilityDamageXp.CAPABILITY.maybeGet(target).ifPresent(cap -> {
                     cap.addDamageFromTool(damageDealt, NbtUtils.loadUUID(tool.getPersistentData().get(UUID_KEY)), context.getPlayerAttacker());
                 });
             }

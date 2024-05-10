@@ -1,18 +1,22 @@
 package org.embeddedt.tinkerleveling.capability;
 
-import net.minecraft.nbt.*;
+import net.fabricmc.fabric.api.transfer.v1.item.ItemVariant;
+import net.fabricmc.fabric.api.transfer.v1.item.PlayerInventoryStorage;
+import net.fabricmc.fabric.api.transfer.v1.storage.base.SingleSlotStorage;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.NbtUtils;
+import net.minecraft.nbt.Tag;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
-import net.minecraftforge.items.CapabilityItemHandler;
 import org.embeddedt.tinkerleveling.ModToolLeveling;
 import org.embeddedt.tinkerleveling.TinkerLeveling;
-import org.embeddedt.tinkerleveling.ToolHelper;
 import slimeknights.tconstruct.library.tools.item.IModifiable;
 import slimeknights.tconstruct.library.tools.nbt.ToolStack;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -48,7 +52,7 @@ public class DamageXp implements IDamageXp {
 
     @Override
     public void distributeXpToTools(LivingEntity deadEntity) {
-        playerToDamageMap.forEach((uuid, itemStackFloatMap) -> distributeXpForPlayer(deadEntity.getLevel(), uuid, itemStackFloatMap));
+        playerToDamageMap.forEach((uuid, itemStackFloatMap) -> distributeXpForPlayer(deadEntity.level(), uuid, itemStackFloatMap));
     }
 
     private void distributeXpForPlayer(Level world, UUID playerUuid, Map<UUID, Float> damageMap) {
@@ -62,31 +66,29 @@ public class DamageXp implements IDamageXp {
 
     private void distributeXpToPlayerForTool(Player player, UUID toolUUID, float damage) {
         if(toolUUID != null) {
-            player.getCapability(CapabilityItemHandler.ITEM_HANDLER_CAPABILITY, null).ifPresent(itemHandler -> {
-                // check for identity. should work in most cases because the entity was killed without loading/unloading
-                for(int i = 0; i < itemHandler.getSlots(); i++) {
-                    ItemStack stack = itemHandler.getStackInSlot(i);
-                    if(stack.getItem() instanceof IModifiable) {
-                        ToolStack tool = ToolStack.from(stack);
-                        if(tool.getPersistentData().contains(ModToolLeveling.UUID_KEY, Tag.TAG_INT_ARRAY)) {
-                            if(NbtUtils.loadUUID(tool.getPersistentData().get(ModToolLeveling.UUID_KEY)).equals(toolUUID)) {
-                                TinkerLeveling.LEVELING_MODIFIER.get().addXp(tool, Math.round(damage), player);
-                                return;
-                            }
+            List<SingleSlotStorage<ItemVariant>> slots = PlayerInventoryStorage.of(player).getSlots();
+            // check for identity. should work in most cases because the entity was killed without loading/unloading
+            for(int i = 0; i < slots.size(); i++) {
+                if(slots.get(i).getResource().getItem() instanceof IModifiable) {
+                    ToolStack tool = ToolStack.from(slots.get(i).getResource().toStack((int) slots.get(i).getAmount()));
+                    if(tool.getPersistentData().contains(ModToolLeveling.UUID_KEY, Tag.TAG_INT_ARRAY)) {
+                        if(NbtUtils.loadUUID(tool.getPersistentData().get(ModToolLeveling.UUID_KEY)).equals(toolUUID)) {
+                            TinkerLeveling.LEVELING_MODIFIER.get().addXp(tool, Math.round(damage), player);
+                            return;
                         }
                     }
                 }
-            });
+            }
         }
     }
 
     @Override
-    public ListTag serializeNBT() {
+    public void writeToNbt(CompoundTag tag) {
         ListTag playerList = new ListTag();
 
         playerToDamageMap.forEach((uuid, itemStackFloatMap) -> playerList.add(convertPlayerDataToTag(uuid, itemStackFloatMap)));
 
-        return playerList;
+        tag.put("playerList", playerList);
     }
 
     private CompoundTag convertPlayerDataToTag(UUID uuid, Map<UUID, Float> itemStackFloatMap) {
@@ -112,10 +114,12 @@ public class DamageXp implements IDamageXp {
 
 
     @Override
-    public void deserializeNBT(ListTag nbt) {
+    public void readFromNbt(CompoundTag nbt) {
+        ListTag playerList = nbt.getList("playerList", Tag.TAG_LIST);
+
         playerToDamageMap = new HashMap<>();
-        for(int i = 0; i < nbt.size(); i++) {
-            CompoundTag tag = nbt.getCompound(i);
+        for(int i = 0; i < playerList.size(); i++) {
+            CompoundTag tag = playerList.getCompound(i);
 
             UUID playerUuid = tag.getUUID(TAG_PLAYER_UUID);
             ListTag data = tag.getList(TAG_DAMAGE_LIST, 10);

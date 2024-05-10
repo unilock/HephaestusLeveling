@@ -1,0 +1,41 @@
+{
+	"schemaVersion": 1,
+	"id": "tinkerleveling",
+	"version": "${version}",
+	"name": "Hephaestus Leveling",
+	"description": "A port of a rewrite of Tinkers Tool Leveling for Fabric.",
+	"authors": [
+		"boni",
+		"embeddedt",
+		"unilock"
+	],
+	"contact": {
+		"sources": "https://github.com/unilock/HephaestusLeveling",
+		"issues": "https://github.com/unilock/HephaestusLeveling/issues"
+	},
+	"license": "MIT",
+	"icon": "assets/tinkerleveling/icon.png",
+	"environment": "*",
+	"entrypoints": {
+		"main": [
+			"org.embeddedt.tinkerleveling.TinkerLeveling"
+		],
+		"client": [
+			"org.embeddedt.tinkerleveling.ClientEvents"
+		],
+		"cardinal-components-entity": [
+			"org.embeddedt.tinkerleveling.capability.CapabilityDamageXp"
+		]
+	},
+	"depends": {
+		"fabricloader": "*",
+		"minecraft": ">=1.20.1",
+		"fabric-api": "*",
+		"tconstruct": "*"
+	},
+	"custom": {
+		"cardinal-components": [
+			"tinkerleveling:entityxp"
+		]
+	}
+}
