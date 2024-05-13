@@ -4,6 +4,7 @@ import com.mojang.datafixers.util.Pair;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.NbtUtils;
 import net.minecraft.nbt.Tag;
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import net.minecraft.world.damagesource.DamageSource;
@@ -18,6 +19,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.enchantment.Enchantment;
 import net.minecraft.world.phys.EntityHitResult;
 import org.embeddedt.tinkerleveling.capability.CapabilityDamageXp;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import slimeknights.tconstruct.common.SoundUtils;
 import slimeknights.tconstruct.library.modifiers.Modifier;
@@ -28,6 +30,12 @@ import slimeknights.tconstruct.library.modifiers.hook.HarvestEnchantmentsModifie
 import slimeknights.tconstruct.library.modifiers.hook.ProjectileHitModifierHook;
 import slimeknights.tconstruct.library.modifiers.hook.ProjectileLaunchModifierHook;
 import slimeknights.tconstruct.library.modifiers.hook.ShearsModifierHook;
+import slimeknights.tconstruct.library.modifiers.hook.build.ModifierRemovalHook;
+import slimeknights.tconstruct.library.modifiers.hook.build.RawDataModifierHook;
+import slimeknights.tconstruct.library.modifiers.hook.build.VolatileDataModifierHook;
+import slimeknights.tconstruct.library.modifiers.hook.combat.DamageTakenModifierHook;
+import slimeknights.tconstruct.library.modifiers.hook.combat.MeleeHitModifierHook;
+import slimeknights.tconstruct.library.modifiers.hook.mining.BlockBreakModifierHook;
 import slimeknights.tconstruct.library.modifiers.hooks.IHarvestModifier;
 import slimeknights.tconstruct.library.modifiers.hooks.IShearModifier;
 import slimeknights.tconstruct.library.modifiers.util.ModifierHookMap;
@@ -52,7 +60,7 @@ import java.util.UUID;
 import java.util.WeakHashMap;
 import java.util.function.BiConsumer;
 
-public class ModToolLeveling extends Modifier implements HarvestEnchantmentsModifierHook, ShearsModifierHook, ProjectileHitModifierHook, ProjectileLaunchModifierHook {
+public class ModToolLeveling extends Modifier implements BlockBreakModifierHook, DamageTakenModifierHook, HarvestEnchantmentsModifierHook, ShearsModifierHook, VolatileDataModifierHook, MeleeHitModifierHook, ModifierRemovalHook, ProjectileHitModifierHook, ProjectileLaunchModifierHook, RawDataModifierHook {
 
     public static final ResourceLocation XP_KEY = new ResourceLocation(TinkerLeveling.MODID, "xp");
     public static final ResourceLocation BONUS_MODIFIERS_KEY = new ResourceLocation(TinkerLeveling.MODID, "bonus_modifiers");
@@ -72,7 +80,7 @@ public class ModToolLeveling extends Modifier implements HarvestEnchantmentsModi
 
 
     @Override
-    public void addVolatileData(ToolRebuildContext context, int level, ModDataNBT volatileData) {
+    public void addVolatileData(@NotNull ToolRebuildContext context, @NotNull ModifierEntry modifier, @NotNull ModDataNBT volatileData) {
         IModDataView persistentData = context.getPersistentData();
         int numExtraModifiers = persistentData.getInt(BONUS_MODIFIERS_KEY);
         int numAbilitySlots = (numExtraModifiers / 2);
@@ -81,21 +89,27 @@ public class ModToolLeveling extends Modifier implements HarvestEnchantmentsModi
     }
 
     @Override
-    public void onRemoved(IToolStackView tool) {
+    public Component onRemoved(@NotNull IToolStackView tool, @NotNull Modifier modifier) {
         tool.getPersistentData().remove(XP_KEY);
         tool.getPersistentData().remove(BONUS_MODIFIERS_KEY);
         tool.getPersistentData().remove(LEVEL_KEY);
         tool.getPersistentData().remove(UUID_KEY);
+        return null;
     }
 
     @Override
-    public void addRawData(IToolStackView tool, int level, RestrictedCompoundTag tag) {
+    public void addRawData(@NotNull IToolStackView tool, @NotNull ModifierEntry modifier, @NotNull RestrictedCompoundTag tag) {
         if(!tool.getPersistentData().contains(UUID_KEY, Tag.TAG_INT_ARRAY)) {
             tool.getPersistentData().put(UUID_KEY, NbtUtils.createUUID(UUID.randomUUID()));
         }
         if(tool.getPersistentData().getInt(LEVEL_KEY) <= 0) {
             tool.getPersistentData().putInt(LEVEL_KEY, 1);
         }
+    }
+
+    @Override
+    public void removeRawData(@NotNull IToolStackView tool, @NotNull Modifier modifier, @NotNull RestrictedCompoundTag tag) {
+        // NO-OP
     }
 
     public static int getXpForLevelup(int level, Item item) {
@@ -143,7 +157,7 @@ public class ModToolLeveling extends Modifier implements HarvestEnchantmentsModi
     @SuppressWarnings("unchecked")
     @Nullable
     @Override
-    public <T> T getModule(Class<T> type) {
+    public <T> T getModule(@NotNull Class<T> type) {
         if (type == IHarvestModifier.class || type == IShearModifier.class) {
             return (T) this;
         }
@@ -153,14 +167,14 @@ public class ModToolLeveling extends Modifier implements HarvestEnchantmentsModi
     /* Handlers */
 
     @Override
-    public void afterBlockBreak(IToolStackView tool, int level, ToolHarvestContext context) {
+    public void afterBlockBreak(@NotNull IToolStackView tool, @NotNull ModifierEntry modifier, @NotNull ToolHarvestContext context) {
         if(context.isEffective() && context.getPlayer() != null) {
             addXp(tool, 1, context.getPlayer());
         }
     }
 
     @Override
-    public void onAttacked(IToolStackView tool, int level, EquipmentContext context, EquipmentSlot slotType, DamageSource source, float amount, boolean isDirectDamage) {
+    public void onDamageTaken(@NotNull IToolStackView tool, @NotNull ModifierEntry modifier, @NotNull EquipmentContext context, @NotNull EquipmentSlot slotType, @NotNull DamageSource source, float amount, boolean isDirectDamage) {
         if(!(context.getEntity() instanceof Player player))
             return;
         boolean wasMobDamage = source.getEntity() != player && source.getEntity() instanceof LivingEntity;
@@ -180,10 +194,10 @@ public class ModToolLeveling extends Modifier implements HarvestEnchantmentsModi
     }
 
     @Override
-    public int afterEntityHit(IToolStackView tool, int level, ToolAttackContext context, float damageDealt) {
+    public void afterMeleeHit(@NotNull IToolStackView tool, @NotNull ModifierEntry modifier, @NotNull ToolAttackContext context, float damageDealt) {
         LivingEntity target = context.getLivingTarget();
         if(target == null)
-            return 0;
+            MeleeHitModifierHook.super.afterMeleeHit(tool, modifier, context, damageDealt);
         if(!context.getTarget().level().isClientSide && context.getPlayerAttacker() != null) {
             // if we killed it the event for distributing xp was already fired and we just do it manually here
             if(!context.getTarget().isAlive()) {
@@ -195,22 +209,22 @@ public class ModToolLeveling extends Modifier implements HarvestEnchantmentsModi
                 });
             }
         }
-        return 0;
+        MeleeHitModifierHook.super.afterMeleeHit(tool, modifier, context, damageDealt);
     }
 
     @Override
-    public void applyHarvestEnchantments(IToolStackView tool, ModifierEntry level, ToolHarvestContext context, BiConsumer<Enchantment, Integer> fn) {
+    public void applyHarvestEnchantments(@NotNull IToolStackView tool, @NotNull ModifierEntry level, @NotNull ToolHarvestContext context, @NotNull BiConsumer<Enchantment, Integer> fn) {
         if(context.getPlayer() != null)
             addXp(tool, 1, context.getPlayer());
     }
 
     @Override
-    public void afterShearEntity(IToolStackView tool, ModifierEntry level, Player player, Entity entity, boolean isTarget) {
+    public void afterShearEntity(@NotNull IToolStackView tool, @NotNull ModifierEntry level, @NotNull Player player, @NotNull Entity entity, boolean isTarget) {
         addXp(tool, 1, player);
     }
 
     @Override
-    public void onProjectileLaunch(IToolStackView iToolStackView, ModifierEntry modifierEntry, LivingEntity livingEntity, Projectile projectile, @org.jetbrains.annotations.Nullable AbstractArrow abstractArrow, NamespacedNBT namespacedNBT, boolean b) {
+    public void onProjectileLaunch(@NotNull IToolStackView iToolStackView, @NotNull ModifierEntry modifierEntry, @NotNull LivingEntity livingEntity, @NotNull Projectile projectile, @Nullable AbstractArrow abstractArrow, @NotNull NamespacedNBT namespacedNBT, boolean b) {
         if(livingEntity instanceof Player player) {
             ItemStack stack = player.getUseItem();
             if(stack.getItem() instanceof ModifiableLauncherItem) {
@@ -227,7 +241,7 @@ public class ModToolLeveling extends Modifier implements HarvestEnchantmentsModi
     }
 
     @Override
-    public boolean onProjectileHitEntity(ModifierNBT modifiers, NamespacedNBT persistentData, ModifierEntry modifier, Projectile projectile, EntityHitResult hit, @org.jetbrains.annotations.Nullable LivingEntity attacker, @org.jetbrains.annotations.Nullable LivingEntity target) {
+    public boolean onProjectileHitEntity(@NotNull ModifierNBT modifiers, @NotNull NamespacedNBT persistentData, @NotNull ModifierEntry modifier, @NotNull Projectile projectile, @NotNull EntityHitResult hit, @Nullable LivingEntity attacker, @Nullable LivingEntity target) {
         if(projectile.getDeltaMovement().length() > 0.4f && attacker instanceof Player player) {
             Pair<ItemStack, Integer> launchInfo;
             synchronized (LAUNCH_INFO_MAP) {

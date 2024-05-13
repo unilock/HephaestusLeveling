@@ -26,10 +26,8 @@ import slimeknights.tconstruct.library.tools.nbt.ToolStack;
 public class TinkerLeveling implements ModInitializer {
     public static final String MODID = "tinkerleveling";
     public static final Logger LOGGER = LoggerFactory.getLogger(MODID);
-    protected static final ModifierDeferredRegister MODIFIERS = ModifierDeferredRegister.create(TinkerLeveling.MODID);
-    public static StaticModifier<ModToolLeveling> LEVELING_MODIFIER = MODIFIERS.register("leveling", ModToolLeveling::new);
-
-    public static TinkerLeveling instance;
+    private static final ModifierDeferredRegister MODIFIERS = ModifierDeferredRegister.create(TinkerLeveling.MODID);
+    public static final StaticModifier<ModToolLeveling> LEVELING_MODIFIER = MODIFIERS.register("leveling", ModToolLeveling::new);
 
     @Override
     public void onInitialize() {
@@ -39,8 +37,6 @@ public class TinkerLeveling implements ModInitializer {
         PlayerTickEvents.END.register((player) -> onPlayerTick(player));
 
         this.registerSoundEvent();
-
-        instance = this;
     }
 
     public void registerModifiers() {
@@ -76,7 +72,7 @@ public class TinkerLeveling implements ModInitializer {
         }
     }
 
-    public static SoundEvent SOUND_LEVELUP = sound("levelup");
+    public static final SoundEvent SOUND_LEVELUP = sound("levelup");
 
     private static SoundEvent sound(String name) {
         return SoundEvent.createVariableRangeEvent(new ResourceLocation(TinkerLeveling.MODID, name));

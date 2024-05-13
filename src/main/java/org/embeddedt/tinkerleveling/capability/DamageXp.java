@@ -22,10 +22,10 @@ import java.util.Optional;
 import java.util.UUID;
 
 public class DamageXp implements IDamageXp {
-    private static String TAG_PLAYER_UUID = "player_uuid";
-    private static String TAG_DAMAGE_LIST = "damage_data";
-    private static String TAG_ITEM = "item";
-    private static String TAG_DAMAGE = "damage";
+    private static final String TAG_PLAYER_UUID = "player_uuid";
+    private static final String TAG_DAMAGE_LIST = "damage_data";
+    private static final String TAG_ITEM = "item";
+    private static final String TAG_DAMAGE = "damage";
 
     private Map<UUID, Map<UUID, Float>> playerToDamageMap = new HashMap<>();
 
