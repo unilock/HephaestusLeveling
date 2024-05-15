@@ -196,8 +196,10 @@ public class ModToolLeveling extends Modifier implements BlockBreakModifierHook,
     @Override
     public void afterMeleeHit(@NotNull IToolStackView tool, @NotNull ModifierEntry modifier, @NotNull ToolAttackContext context, float damageDealt) {
         LivingEntity target = context.getLivingTarget();
-        if(target == null)
+        if(target == null) {
             MeleeHitModifierHook.super.afterMeleeHit(tool, modifier, context, damageDealt);
+            return;
+        }
         if(!context.getTarget().level().isClientSide && context.getPlayerAttacker() != null) {
             // if we killed it the event for distributing xp was already fired and we just do it manually here
             if(!context.getTarget().isAlive()) {
