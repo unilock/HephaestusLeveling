@@ -2,7 +2,6 @@ package org.embeddedt.tinkerleveling;
 
 import com.mojang.datafixers.util.Pair;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.NbtUtils;
 import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
@@ -31,6 +30,7 @@ import slimeknights.tconstruct.library.modifiers.Modifier;
 import slimeknights.tconstruct.library.modifiers.ModifierEntry;
 import slimeknights.tconstruct.library.modifiers.TinkerHooks;
 import slimeknights.tconstruct.library.modifiers.hook.ConditionalStatModifierHook;
+import slimeknights.tconstruct.library.modifiers.hook.ElytraFlightModifierHook;
 import slimeknights.tconstruct.library.modifiers.hook.PlantHarvestModifierHook;
 import slimeknights.tconstruct.library.modifiers.hook.ProjectileHitModifierHook;
 import slimeknights.tconstruct.library.modifiers.hook.ProjectileLaunchModifierHook;
@@ -62,7 +62,7 @@ import slimeknights.tconstruct.tools.TinkerModifiers;
 import java.util.UUID;
 import java.util.WeakHashMap;
 
-public class ModToolLeveling extends Modifier implements BlockBreakModifierHook, DamageTakenModifierHook, ShearsModifierHook, MeleeHitModifierHook, PlantHarvestModifierHook, ProjectileHitModifierHook, ProjectileLaunchModifierHook, ModifierRemovalHook, RawDataModifierHook, VolatileDataModifierHook {
+public class ModToolLeveling extends Modifier implements BlockBreakModifierHook, DamageTakenModifierHook, ElytraFlightModifierHook, ShearsModifierHook, MeleeHitModifierHook, PlantHarvestModifierHook, ProjectileHitModifierHook, ProjectileLaunchModifierHook, ModifierRemovalHook, RawDataModifierHook, VolatileDataModifierHook {
 
     public static final ResourceLocation XP_KEY = new ResourceLocation(TinkerLeveling.MODID, "xp");
     public static final ResourceLocation BONUS_MODIFIERS_KEY = new ResourceLocation(TinkerLeveling.MODID, "bonus_modifiers");
@@ -82,7 +82,7 @@ public class ModToolLeveling extends Modifier implements BlockBreakModifierHook,
 
     @Override
     protected void registerHooks(ModifierHookMap.Builder hookBuilder) {
-        hookBuilder.addHook(this, TinkerHooks.BLOCK_BREAK, TinkerHooks.DAMAGE_TAKEN, TinkerHooks.SHEAR_ENTITY, TinkerHooks.MELEE_HIT, TinkerHooks.PLANT_HARVEST, TinkerHooks.PROJECTILE_HIT, TinkerHooks.PROJECTILE_LAUNCH, TinkerHooks.REMOVE, TinkerHooks.RAW_DATA, TinkerHooks.VOLATILE_DATA);
+        hookBuilder.addHook(this, TinkerHooks.BLOCK_BREAK, TinkerHooks.DAMAGE_TAKEN, TinkerHooks.ELYTRA_FLIGHT, TinkerHooks.SHEAR_ENTITY, TinkerHooks.MELEE_HIT, TinkerHooks.PLANT_HARVEST, TinkerHooks.PROJECTILE_HIT, TinkerHooks.PROJECTILE_LAUNCH, TinkerHooks.REMOVE, TinkerHooks.RAW_DATA, TinkerHooks.VOLATILE_DATA);
     }
 
     @Override
@@ -189,6 +189,15 @@ public class ModToolLeveling extends Modifier implements BlockBreakModifierHook,
                 && !player.level().isClientSide) {
             addXp(tool, 1, player);
         }
+    }
+
+    @Override
+    public boolean elytraFlightTick(@NotNull IToolStackView tool, @NotNull ModifierEntry modifier, @NotNull LivingEntity entity, int flightTicks) {
+        // Grant 1 XP every 5 seconds
+        if(flightTicks > 0 && (flightTicks % 100) == 0 && entity instanceof Player player) {
+            addXp(tool, 1, player);
+        }
+        return false;
     }
 
     @Override
