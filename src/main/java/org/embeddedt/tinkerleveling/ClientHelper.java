@@ -2,6 +2,7 @@ package org.embeddedt.tinkerleveling;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
 
 public class ClientHelper {
@@ -10,7 +11,7 @@ public class ClientHelper {
 
     }
 
-    public static void sendLevelUpMessage(int level, Player player) {
+    public static void sendLevelUpMessage(int level, ServerPlayer player) {
         Component textComponent;
         // special message
         if(TranslationHelper.canTranslate("message.levelup." + level)) {

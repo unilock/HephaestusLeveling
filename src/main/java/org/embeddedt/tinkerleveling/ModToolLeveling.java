@@ -1,11 +1,14 @@
 package org.embeddedt.tinkerleveling;
 
 import com.mojang.datafixers.util.Pair;
+import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.NbtUtils;
 import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.Mth;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
@@ -16,7 +19,8 @@ import net.minecraft.world.entity.projectile.AbstractArrow;
 import net.minecraft.world.entity.projectile.Projectile;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.enchantment.Enchantment;
+import net.minecraft.world.item.context.UseOnContext;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.EntityHitResult;
 import org.embeddedt.tinkerleveling.capability.CapabilityDamageXp;
 import org.jetbrains.annotations.NotNull;
@@ -26,7 +30,7 @@ import slimeknights.tconstruct.library.modifiers.Modifier;
 import slimeknights.tconstruct.library.modifiers.ModifierEntry;
 import slimeknights.tconstruct.library.modifiers.TinkerHooks;
 import slimeknights.tconstruct.library.modifiers.hook.ConditionalStatModifierHook;
-import slimeknights.tconstruct.library.modifiers.hook.HarvestEnchantmentsModifierHook;
+import slimeknights.tconstruct.library.modifiers.hook.PlantHarvestModifierHook;
 import slimeknights.tconstruct.library.modifiers.hook.ProjectileHitModifierHook;
 import slimeknights.tconstruct.library.modifiers.hook.ProjectileLaunchModifierHook;
 import slimeknights.tconstruct.library.modifiers.hook.ShearsModifierHook;
@@ -36,8 +40,6 @@ import slimeknights.tconstruct.library.modifiers.hook.build.VolatileDataModifier
 import slimeknights.tconstruct.library.modifiers.hook.combat.DamageTakenModifierHook;
 import slimeknights.tconstruct.library.modifiers.hook.combat.MeleeHitModifierHook;
 import slimeknights.tconstruct.library.modifiers.hook.mining.BlockBreakModifierHook;
-import slimeknights.tconstruct.library.modifiers.hooks.IHarvestModifier;
-import slimeknights.tconstruct.library.modifiers.hooks.IShearModifier;
 import slimeknights.tconstruct.library.modifiers.util.ModifierHookMap;
 import slimeknights.tconstruct.library.tools.SlotType;
 import slimeknights.tconstruct.library.tools.context.EquipmentContext;
@@ -58,9 +60,8 @@ import slimeknights.tconstruct.tools.TinkerModifiers;
 
 import java.util.UUID;
 import java.util.WeakHashMap;
-import java.util.function.BiConsumer;
 
-public class ModToolLeveling extends Modifier implements BlockBreakModifierHook, DamageTakenModifierHook, HarvestEnchantmentsModifierHook, ShearsModifierHook, VolatileDataModifierHook, MeleeHitModifierHook, ModifierRemovalHook, ProjectileHitModifierHook, ProjectileLaunchModifierHook, RawDataModifierHook {
+public class ModToolLeveling extends Modifier implements BlockBreakModifierHook, DamageTakenModifierHook, ShearsModifierHook, MeleeHitModifierHook, PlantHarvestModifierHook, ProjectileHitModifierHook, ProjectileLaunchModifierHook, ModifierRemovalHook, RawDataModifierHook, VolatileDataModifierHook {
 
     public static final ResourceLocation XP_KEY = new ResourceLocation(TinkerLeveling.MODID, "xp");
     public static final ResourceLocation BONUS_MODIFIERS_KEY = new ResourceLocation(TinkerLeveling.MODID, "bonus_modifiers");
@@ -78,6 +79,10 @@ public class ModToolLeveling extends Modifier implements BlockBreakModifierHook,
         super();
     }
 
+    @Override
+    protected void registerHooks(ModifierHookMap.Builder hookBuilder) {
+        hookBuilder.addHook(this, TinkerHooks.BLOCK_BREAK, TinkerHooks.DAMAGE_TAKEN, TinkerHooks.SHEAR_ENTITY, TinkerHooks.MELEE_HIT, TinkerHooks.PLANT_HARVEST, TinkerHooks.PROJECTILE_HIT, TinkerHooks.PROJECTILE_LAUNCH, TinkerHooks.REMOVE, TinkerHooks.RAW_DATA, TinkerHooks.VOLATILE_DATA);
+    }
 
     @Override
     public void addVolatileData(@NotNull ToolRebuildContext context, @NotNull ModifierEntry modifier, @NotNull ModDataNBT volatileData) {
@@ -109,7 +114,8 @@ public class ModToolLeveling extends Modifier implements BlockBreakModifierHook,
 
     @Override
     public void removeRawData(@NotNull IToolStackView tool, @NotNull Modifier modifier, @NotNull RestrictedCompoundTag tag) {
-        // NO-OP
+        tool.getPersistentData().remove(UUID_KEY);
+        tool.getPersistentData().remove(LEVEL_KEY);
     }
 
     public static int getXpForLevelup(int level, Item item) {
@@ -143,7 +149,7 @@ public class ModToolLeveling extends Modifier implements BlockBreakModifierHook,
         if(leveledUp) {
             if(!player.level().isClientSide) {
                 SoundUtils.playSoundForPlayer(player, BuiltInRegistries.SOUND_EVENT.wrapAsHolder(TinkerLeveling.SOUND_LEVELUP), 1f, 1f);
-                ClientHelper.sendLevelUpMessage(levelData.getInt(LEVEL_KEY), player);
+                ClientHelper.sendLevelUpMessage(levelData.getInt(LEVEL_KEY), (ServerPlayer) player);
             }
             /* FIXME: no other way of doing this that I see */
             if(tool instanceof ToolStack) {
@@ -152,16 +158,6 @@ public class ModToolLeveling extends Modifier implements BlockBreakModifierHook,
                 throw new IllegalStateException("Unable to figure out how to rebuild this tool!");
             }
         }
-    }
-
-    @SuppressWarnings("unchecked")
-    @Nullable
-    @Override
-    public <T> T getModule(@NotNull Class<T> type) {
-        if (type == IHarvestModifier.class || type == IShearModifier.class) {
-            return (T) this;
-        }
-        return null;
     }
 
     /* Handlers */
@@ -215,14 +211,16 @@ public class ModToolLeveling extends Modifier implements BlockBreakModifierHook,
     }
 
     @Override
-    public void applyHarvestEnchantments(@NotNull IToolStackView tool, @NotNull ModifierEntry level, @NotNull ToolHarvestContext context, @NotNull BiConsumer<Enchantment, Integer> fn) {
-        if(context.getPlayer() != null)
-            addXp(tool, 1, context.getPlayer());
-    }
-
-    @Override
     public void afterShearEntity(@NotNull IToolStackView tool, @NotNull ModifierEntry level, @NotNull Player player, @NotNull Entity entity, boolean isTarget) {
         addXp(tool, 1, player);
+    }
+
+
+    @Override
+    public void afterHarvest(@NotNull IToolStackView tool, @NotNull ModifierEntry modifier, @NotNull UseOnContext context, @NotNull ServerLevel world, @NotNull BlockState state, @NotNull BlockPos pos) {
+        if(context.getPlayer() != null) {
+            addXp(tool, 1, context.getPlayer());
+        }
     }
 
     @Override
@@ -261,10 +259,5 @@ public class ModToolLeveling extends Modifier implements BlockBreakModifierHook,
             }
         }
         return false;
-    }
-
-    @Override
-    protected void registerHooks(ModifierHookMap.Builder hookBuilder) {
-        hookBuilder.addHook(this, TinkerHooks.PROJECTILE_LAUNCH, TinkerHooks.PROJECTILE_HIT);
     }
 }
