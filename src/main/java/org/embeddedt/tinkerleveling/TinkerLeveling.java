@@ -72,13 +72,10 @@ public class TinkerLeveling implements ModInitializer {
         }
     }
 
-    public static final SoundEvent SOUND_LEVELUP = sound("levelup");
-
-    private static SoundEvent sound(String name) {
-        return SoundEvent.createVariableRangeEvent(new ResourceLocation(TinkerLeveling.MODID, name));
-    }
+    public static final ResourceLocation SOUND_LEVELUP_LOCATION = new ResourceLocation(TinkerLeveling.MODID, "levelup");
+    public static final SoundEvent SOUND_LEVELUP = SoundEvent.createVariableRangeEvent(SOUND_LEVELUP_LOCATION);
 
     public void registerSoundEvent() {
-        Registry.register(BuiltInRegistries.SOUND_EVENT, SOUND_LEVELUP.getLocation(), SOUND_LEVELUP);
+        Registry.register(BuiltInRegistries.SOUND_EVENT, SOUND_LEVELUP_LOCATION, SOUND_LEVELUP);
     }
 }

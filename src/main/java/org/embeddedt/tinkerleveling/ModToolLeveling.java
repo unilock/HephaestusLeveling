@@ -148,7 +148,8 @@ public class ModToolLeveling extends Modifier implements BlockBreakModifierHook,
 
         if(leveledUp) {
             if(!player.level().isClientSide) {
-                SoundUtils.playSoundForPlayer(player, BuiltInRegistries.SOUND_EVENT.wrapAsHolder(TinkerLeveling.SOUND_LEVELUP), 1f, 1f);
+                // TODO maybe only play for that player again
+                SoundUtils.playSoundForAll(player, TinkerLeveling.SOUND_LEVELUP, 1f, 1f);
                 ClientHelper.sendLevelUpMessage(levelData.getInt(LEVEL_KEY), (ServerPlayer) player);
             }
             /* FIXME: no other way of doing this that I see */
@@ -193,7 +194,6 @@ public class ModToolLeveling extends Modifier implements BlockBreakModifierHook,
     public void afterMeleeHit(@NotNull IToolStackView tool, @NotNull ModifierEntry modifier, @NotNull ToolAttackContext context, float damageDealt) {
         LivingEntity target = context.getLivingTarget();
         if(target == null) {
-            MeleeHitModifierHook.super.afterMeleeHit(tool, modifier, context, damageDealt);
             return;
         }
         if(!context.getTarget().level().isClientSide && context.getPlayerAttacker() != null) {
@@ -207,7 +207,6 @@ public class ModToolLeveling extends Modifier implements BlockBreakModifierHook,
                 });
             }
         }
-        MeleeHitModifierHook.super.afterMeleeHit(tool, modifier, context, damageDealt);
     }
 
     @Override
